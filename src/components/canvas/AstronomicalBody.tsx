@@ -1,20 +1,24 @@
-import { Object3D, Vector3 } from "three";
-import { useEffect, useRef } from "react";
-import { Mesh } from "three";
-import { RingGeometry } from "three";
-import { PointLight } from "three";
-import { DirectionalLight } from "three";
+import { PerspectiveCameraProps, useFrame } from "@react-three/fiber";
+import { MutableRefObject, useRef, useEffect } from "react";
+import { AstronomicalBodyProps } from "../../data/astronomicalBodyData";
 import { Html, useTexture } from "@react-three/drei";
-import { DoubleSide } from "three";
+import { Mesh } from "three/src/objects/Mesh";
+import { Object3D } from "three/src/core/Object3D";
+import { Vector3 } from "three/src/math/Vector3";
+import { PointLight } from "three/src/lights/PointLight";
+import { OrbitControls as OrbitControlsImpl } from "three-stdlib";
+import { DoubleSide } from "three/src/constants";
+import { DirectionalLight } from "three/src/lights/DirectionalLight";
+import { RingGeometry } from "three/src/geometries/RingGeometry";
 import OrbitPath from "./OrbitPath";
-import store, { updateAppSetting, updateUserSetting, updateRefSetting } from "../../data/store";
-import { useFrame } from "@react-three/fiber";
+import store, { updateAppSetting, updateRefSetting, updateUserSetting } from "../../data/store";
 
-const AstronomicalBody = ({ cameraRef, controlsRef, ...props }) => {
+type Props = {
+  cameraRef: MutableRefObject<PerspectiveCameraProps>;
+  controlsRef: MutableRefObject<OrbitControlsImpl>;
+} & AstronomicalBodyProps;
 
-
-    console.log(cameraRef)
-    console.log(controlsRef)
+const AstronomicalBody = ({ cameraRef, controlsRef, ...props }: Props) => {
 
     const showLabels = store.useState((s) => s.userSettings.showLabels);
     const showDebugInfo = store.useState((s) => s.userSettings.showDebugInfo);
@@ -22,26 +26,21 @@ const AstronomicalBody = ({ cameraRef, controlsRef, ...props }) => {
     const quality = store.useState((s) => s.userSettings.quality);
     const divisionQuality = quality === "High" ? 32 : 16;
 
-    const bodyOrbitRef = useRef(new Object3D());
-    const bodyPositionRef = useRef(new Object3D());
-    const bodyRef = useRef(new Object3D());
-    const bodyMeshRef = useRef(new Mesh());
-    const ringGeometryRef = useRef(new RingGeometry());
-    const pointLightRef = useRef(new PointLight());
-    const directionalLightRef = useRef(new DirectionalLight());
-    const bodyTexture = useTexture(props.textureSrc);
-    const ringTexture = useTexture(props.textureSrc);
+    const bodyOrbitRef = useRef<Object3D>(null!);
+    const bodyPositionRef = useRef<Object3D>(null!);
+    const bodyRef = useRef<Object3D>(null!);
+    const bodyMeshRef = useRef<Mesh>(null!);
+    const ringGeometryRef = useRef<RingGeometry>(null!);
+    const pointLightRef = useRef<PointLight>(null!);
+    const directionalLightRef = useRef<DirectionalLight>(null!);
 
-    const currentBodyPositionVectorRef = useRef(new Vector3());
-    const nextBodyPositionVectorRef = useRef(new Vector3());
-    const bodyFocusVectorRef = useRef(new Vector3());
+    const currentBodyPositionVectorRef = useRef<Vector3>(new Vector3());
+    const nextBodyPositionVectorRef = useRef<Vector3>(new Vector3());
+    const bodyFocusVectorRef = useRef<Vector3>(new Vector3());
 
-    const focusBody = () => {
-        if (store.getRawState().userSettings.focusedBody !== props.name) {
-            updateUserSetting("focusedBody", props.name);
-            updateAppSetting("focusingBody", true);
-        }
-    };
+    const ringTexture = null;
+    const bodyTexture = null;
+
 
     useEffect(() => {
         const randomAngleAlongOrbit = Math.floor(Math.random() * Math.PI * 2);
@@ -67,14 +66,14 @@ const AstronomicalBody = ({ cameraRef, controlsRef, ...props }) => {
 
     useEffect(() => {
         if (ringTexture) {
-            const uvs = ringGeometryRef.current.attributes.uv.array;
+            const uvs = ringGeometryRef.current.attributes.uv.array as number[];
             const phiSegments = ringGeometryRef.current.parameters.phiSegments;
             const thetaSegments = ringGeometryRef.current.parameters.thetaSegments;
 
-            for (var c = 0, j = 0; j < phiSegments; j++) {
+            for (var c = 0, j = 0; j <= phiSegments; j++) {
                 for (var i = 0; i <= thetaSegments; i++) {
-                    uvs[c++] = j / phiSegments;
-                    uvs[c++] = i / thetaSegments;
+                uvs[c++] = j / phiSegments;
+                uvs[c++] = i / thetaSegments;
                 }
             }
         }
@@ -82,13 +81,12 @@ const AstronomicalBody = ({ cameraRef, controlsRef, ...props }) => {
 
     useEffect(() => {
         if (pointLightRef.current) {
-            pointLightRef.current.shadow.camera.far = 1500000;
+            pointLightRef.current.shadow.camera.far = 1500000; // approximately the farthest toon orbit radius
         }
 
         if (directionalLightRef.current) {
-            directionalLightRef.current.shadow.camera.far = 6000000000;
+            directionalLightRef.current.shadow.camera.far = 6000000000; // approximately the farthest real orbit radius
         }
-
     }, [actualScale, pointLightRef, directionalLightRef]);
 
     useFrame(() => {
@@ -96,34 +94,48 @@ const AstronomicalBody = ({ cameraRef, controlsRef, ...props }) => {
 
         bodyRef.current.getWorldPosition(currentBodyPositionVectorRef.current);
 
-        // if (userSettings.focusedBody === props.name) {
-        //     const cameraPosition = cameraRef.current.position;
-        //     bodyRef.current.getWorldPosition(nextBodyPositionVectorRef.current);
-        //     controlsRef.current.target = nextBodyPositionVectorRef.current;
+        if (userSettings.timeSpeedModifier > 0) {
+            bodyOrbitRef.current.rotation.y += props.orbit.rotationPeriod * appSettings.timeStep;
+            bodyPositionRef.current.rotation.y -= props.orbit.rotationPeriod * appSettings.timeStep;
+            bodyRef.current.rotation.y += props.rotationPeriod * appSettings.timeStep;
+        }
 
-        //     if (appSettings.focusingBody) {
-        //         cameraPosition.x = nextBodyPositionVectorRef.current.x - bodyFocusVectorRef.current.x;
-        //         cameraPosition.y = nextBodyPositionVectorRef.current.y + bodyFocusVectorRef.current.y;
-        //         cameraPosition.z = nextBodyPositionVectorRef.current.z + bodyFocusVectorRef.current.z;
+        if (userSettings.focusedBody === props.name) {
+            const cameraPosition = cameraRef.current.position as Vector3;
+            bodyRef.current.getWorldPosition(nextBodyPositionVectorRef.current);
+            controlsRef.current.target = nextBodyPositionVectorRef.current;
 
-        //         // Prevent the camera from being inside the bodies.
-        //         controlsRef.current.minDistance = props.radius + cameraRef.current.near;
+            if (appSettings.focusingBody) {
+                cameraPosition.x = nextBodyPositionVectorRef.current.x - bodyFocusVectorRef.current.x;
+                cameraPosition.y = nextBodyPositionVectorRef.current.y + bodyFocusVectorRef.current.y;
+                cameraPosition.z = nextBodyPositionVectorRef.current.z + bodyFocusVectorRef.current.z;
 
-        //         updateAppSetting("focusingBody", false);
-        //     } else {
-        //         cameraPosition.x += nextBodyPositionVectorRef.current.x - currentBodyPositionVectorRef.current.x;
-        //         cameraPosition.y += nextBodyPositionVectorRef.current.y - currentBodyPositionVectorRef.current.y;
-        //         cameraPosition.z += nextBodyPositionVectorRef.current.z - currentBodyPositionVectorRef.current.z;
-        //     }
-        // }
+                // Prevent the camera from being inside the bodies.
+                controlsRef.current.minDistance = props.radius + cameraRef.current.near!;
 
-        // if (props.isLight && actualScale) {
-        //     directionalLightRef.current.position.x = -controlsRef.current.target.x;
-        //     directionalLightRef.current.position.y = -controlsRef.current.target.y;
-        //     directionalLightRef.current.position.z = -controlsRef.current.target.z;
-        // }
+                updateAppSetting("focusingBody", false);
+            } else {
+                cameraPosition.x += nextBodyPositionVectorRef.current.x - currentBodyPositionVectorRef.current.x;
+                cameraPosition.y += nextBodyPositionVectorRef.current.y - currentBodyPositionVectorRef.current.y;
+                cameraPosition.z += nextBodyPositionVectorRef.current.z - currentBodyPositionVectorRef.current.z;
+            }
+        }
+
+        if (props.isLight && actualScale) {
+            directionalLightRef.current.position.x = -controlsRef.current.target.x;
+            directionalLightRef.current.position.y = -controlsRef.current.target.y;
+            directionalLightRef.current.position.z = -controlsRef.current.target.z;
+        }
     });
 
+    const focusBody = () => {
+        console.log(store.getRawState())
+        if (store.getRawState().userSettings.focusedBody !== props.name) {
+            updateUserSetting("focusedBody", props.name);
+            updateAppSetting("focusingBody", true);
+        }
+    };
+    console.log(props.name, "===>>>" , props.orbit.inclination + props.axialTilt)
     return (
         <object3D rotation={[0, 0, props.orbit.inclination]}>
             <object3D ref={bodyOrbitRef}>
@@ -149,12 +161,12 @@ const AstronomicalBody = ({ cameraRef, controlsRef, ...props }) => {
                                 />
                             </>
                         )}
-                        {showLabels && (
+                        {/* {showLabels && (
                             <Html position={[0, props.radius * 1.8, 0]} center wrapperClass="canvas-body-object">
                                 <p onClick={focusBody}>{props.name}</p>
                             </Html>
-                        )}
-                        <object3D rotation={[0, 0, props.orbit.inclination + props.axialTilt]}>
+                        )} */}
+                        <object3D rotation={[0,0,props.orbit.inclination + props.axialTilt]}>
                             <object3D
                                 ref={bodyRef}
                                 onPointerEnter={() => {
@@ -165,7 +177,7 @@ const AstronomicalBody = ({ cameraRef, controlsRef, ...props }) => {
                                 }}
                             >
                                 {showDebugInfo && <axesHelper args={[props.radius * 1.6]} />}
-                                <mesh ref={bodyMeshRef} castShadow={!props.isLight} receiveShadow={!props.isLight} onClick={focusBody} >
+                                <mesh ref={bodyMeshRef} castShadow={!props.isLight} receiveShadow={!props.isLight} onClick={focusBody}>
                                     <sphereGeometry args={[props.radius, divisionQuality * 2, divisionQuality]} />
                                     <meshPhongMaterial
                                         color={bodyTexture ? undefined : props.color}
@@ -196,9 +208,9 @@ const AstronomicalBody = ({ cameraRef, controlsRef, ...props }) => {
                                 )}
                             </object3D>
                         </object3D>
-                        {/* {props.satellites.map((satellite, index) => (
-                            <AstronomicalBody key={index} {...satellite} />
-                        ))} */}
+                        {props.satellites.map((satellite, index) => (
+                            <AstronomicalBody key={index} {...satellite} cameraRef={cameraRef} controlsRef={controlsRef} />
+                        ))}
                     </object3D>
                 </object3D>
             </object3D>

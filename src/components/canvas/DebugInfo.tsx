@@ -1,5 +1,4 @@
 import { Stats } from "@react-three/drei";
-
 import store from "../../data/store";
 
 const DebugInfo = () => {
