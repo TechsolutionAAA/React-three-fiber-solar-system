@@ -38,8 +38,10 @@ const AstronomicalBody = ({ cameraRef, controlsRef, ...props }: Props) => {
     const nextBodyPositionVectorRef = useRef<Vector3>(new Vector3());
     const bodyFocusVectorRef = useRef<Vector3>(new Vector3());
 
-    const ringTexture = null;
-    const bodyTexture = null;
+    // const ringTexture = null;
+    const ringTexture = useTexture(props!.ring?.textureSrc ?? '/assets/blank.jpg');
+    // const bodyTexture = null;
+    const bodyTexture = useTexture(props.textureSrc ?? '/assets/blank.jpg');
 
 
     useEffect(() => {
@@ -50,7 +52,7 @@ const AstronomicalBody = ({ cameraRef, controlsRef, ...props }: Props) => {
         if (props.name === "Moon") {
             bodyRef.current.rotation.y += randomAngleAlongOrbit + Math.PI;
         }
-    }, []);
+    }, [props.name]);
 
     useEffect(() => {
         updateRefSetting("lightSourceMeshRef", bodyMeshRef);
@@ -65,7 +67,8 @@ const AstronomicalBody = ({ cameraRef, controlsRef, ...props }: Props) => {
     }, [props.radius]);
 
     useEffect(() => {
-        if (ringTexture) {
+        // if (ringTexture) {
+        if (props.ring && props.ring) {
             const uvs = ringGeometryRef.current.attributes.uv.array as number[];
             const phiSegments = ringGeometryRef.current.parameters.phiSegments;
             const thetaSegments = ringGeometryRef.current.parameters.thetaSegments;
@@ -77,7 +80,7 @@ const AstronomicalBody = ({ cameraRef, controlsRef, ...props }: Props) => {
                 }
             }
         }
-    }, [divisionQuality, actualScale, ringTexture]);
+    }, [divisionQuality, actualScale, props.ring, ringTexture]);
 
     useEffect(() => {
         if (pointLightRef.current) {
@@ -161,11 +164,11 @@ const AstronomicalBody = ({ cameraRef, controlsRef, ...props }: Props) => {
                                 />
                             </>
                         )}
-                        {/* {showLabels && (
+                        {showLabels && (
                             <Html position={[0, props.radius * 1.8, 0]} center wrapperClass="canvas-body-object">
-                                <p onClick={focusBody}>{props.name}</p>
+                                <p onClick={focusBody} style={{color: 'red'}}>{props.name}</p>
                             </Html>
-                        )} */}
+                        )}
                         <object3D rotation={[0,0,props.orbit.inclination + props.axialTilt]}>
                             <object3D
                                 ref={bodyRef}
